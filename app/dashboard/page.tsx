@@ -16,7 +16,7 @@ import { SmartEmptyState } from '@/components/ui/smart-empty-state'
 import { PageTransition } from '@/components/ui/page-transition'
 import { Confetti } from '@/components/ui/confetti'
 import { useAppState, vibeConfigs } from '@/lib/store'
-import { mockPlan, type Meal } from '@/data/mock-plan'
+import { mockPlan, type Meal, getAlternativeMeal, regenerateAllMeals } from '@/data/mock-plan'
 import { Calendar, ChevronLeft, ChevronRight, Sparkles, RefreshCw, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -116,18 +116,33 @@ export default function DashboardPage() {
     setSwappingMeal(mealId)
     setShowAiThinking(true)
     
-    // Simulate AI thinking
+    // Simulate AI thinking then swap the meal
     setTimeout(() => {
+      const alternative = getAlternativeMeal(mealId)
+      if (alternative) {
+        setLocalMealOrder(prev => 
+          prev.map(meal => 
+            meal.id === mealId 
+              ? { ...alternative, id: mealId } // Keep the original ID
+              : meal
+          )
+        )
+      }
       setShowAiThinking(false)
       setSwappingMeal(null)
-      // In a real app, this would fetch a new meal suggestion
-    }, 2000)
+    }, 1500)
   }, [])
 
   const handleAiSuggest = useCallback(() => {
     setShowAiThinking(true)
-    setTimeout(() => setShowAiThinking(false), 2000)
-  }, [])
+    setTimeout(() => {
+      // Regenerate all meals with alternatives
+      const newMeals = regenerateAllMeals()
+      setLocalMealOrder(newMeals)
+      setMealOrder(newMeals.map(m => m.id))
+      setShowAiThinking(false)
+    }, 2000)
+  }, [setMealOrder])
 
   const handleMealReorder = useCallback((newOrder: Meal[]) => {
     setLocalMealOrder(newOrder)

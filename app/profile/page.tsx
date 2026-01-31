@@ -300,7 +300,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Goal Section */}
+          {/* Goal Section - Always editable */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -321,14 +321,17 @@ export default function ProfilePage() {
                   </p>
                 </div>
               </div>
-              <ChevronRight className={cn(
-                'w-5 h-5 text-muted-foreground transition-transform',
-                activeSection === 'goal' && 'rotate-90'
-              )} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Tap to change</span>
+                <ChevronRight className={cn(
+                  'w-5 h-5 text-muted-foreground transition-transform',
+                  activeSection === 'goal' && 'rotate-90'
+                )} />
+              </div>
             </button>
 
             <AnimatePresence>
-              {activeSection === 'goal' && isEditing && (
+              {activeSection === 'goal' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -338,20 +341,36 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     {goals.map((goal) => {
                       const Icon = goalIcons[goal.id]
+                      const isSelected = state.profile.goal === goal.id
                       return (
                         <GlassCard
                           key={goal.id}
-                          selected={editedProfile.goal === goal.id}
-                          onClick={() => setEditedProfile({ ...editedProfile, goal: goal.id })}
+                          selected={isSelected}
+                          onClick={() => {
+                            updateProfile({ goal: goal.id })
+                            setActiveSection(null) // Close after selection
+                          }}
                           className="p-4"
                         >
                           <div className="flex items-center gap-3">
                             <Icon className={cn(
                               'w-5 h-5',
-                              editedProfile.goal === goal.id ? 'text-primary' : 'text-muted-foreground'
+                              isSelected ? 'text-primary' : 'text-muted-foreground'
                             )} />
-                            <span className="text-sm font-medium text-foreground">{goal.title}</span>
+                            <div>
+                              <span className="text-sm font-medium text-foreground">{goal.title}</span>
+                              <p className="text-xs text-muted-foreground">{goal.description}</p>
+                            </div>
                           </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-2 right-2"
+                            >
+                              <Check className="w-4 h-4 text-primary" />
+                            </motion.div>
+                          )}
                         </GlassCard>
                       )
                     })}

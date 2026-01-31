@@ -114,3 +114,170 @@ export const dietaryPreferences = [
   { id: 'paleo', label: 'Paleo' },
   { id: 'gluten-free', label: 'Gluten Free' },
 ]
+
+// Alternative meals for AI regeneration
+export const alternativeMeals: Record<string, Meal[]> = {
+  '1': [ // Breakfast alternatives
+    {
+      id: '1-alt-1',
+      name: 'Greek Yogurt Parfait',
+      time: '7:30 AM',
+      calories: 380,
+      protein: 28,
+      carbs: 42,
+      fat: 12,
+      image: '/meals/breakfast-alt1.jpg',
+      ingredients: ['Greek Yogurt', 'Granola', 'Mixed Berries', 'Honey', 'Chia Seeds'],
+    },
+    {
+      id: '1-alt-2',
+      name: 'Protein Pancakes',
+      time: '7:30 AM',
+      calories: 420,
+      protein: 32,
+      carbs: 48,
+      fat: 14,
+      image: '/meals/breakfast-alt2.jpg',
+      ingredients: ['Oat Flour', 'Whey Protein', 'Eggs', 'Banana', 'Maple Syrup'],
+    },
+    {
+      id: '1-alt-3',
+      name: 'Avocado Toast Deluxe',
+      time: '7:30 AM',
+      calories: 440,
+      protein: 22,
+      carbs: 38,
+      fat: 24,
+      image: '/meals/breakfast-alt3.jpg',
+      ingredients: ['Sourdough Bread', 'Avocado', 'Poached Eggs', 'Cherry Tomatoes', 'Feta'],
+    },
+  ],
+  '2': [ // Lunch alternatives
+    {
+      id: '2-alt-1',
+      name: 'Asian Chicken Salad',
+      time: '12:30 PM',
+      calories: 580,
+      protein: 42,
+      carbs: 48,
+      fat: 22,
+      image: '/meals/lunch-alt1.jpg',
+      ingredients: ['Grilled Chicken', 'Cabbage', 'Edamame', 'Sesame Dressing', 'Cashews'],
+    },
+    {
+      id: '2-alt-2',
+      name: 'Turkey Wrap',
+      time: '12:30 PM',
+      calories: 520,
+      protein: 38,
+      carbs: 52,
+      fat: 18,
+      image: '/meals/lunch-alt2.jpg',
+      ingredients: ['Whole Wheat Wrap', 'Turkey Breast', 'Avocado', 'Lettuce', 'Tomato'],
+    },
+    {
+      id: '2-alt-3',
+      name: 'Buddha Bowl',
+      time: '12:30 PM',
+      calories: 610,
+      protein: 35,
+      carbs: 65,
+      fat: 24,
+      image: '/meals/lunch-alt3.jpg',
+      ingredients: ['Quinoa', 'Roasted Chickpeas', 'Sweet Potato', 'Kale', 'Tahini'],
+    },
+  ],
+  '3': [ // Snack alternatives
+    {
+      id: '3-alt-1',
+      name: 'Protein Shake',
+      time: '4:00 PM',
+      calories: 280,
+      protein: 30,
+      carbs: 22,
+      fat: 8,
+      image: '/meals/snack-alt1.jpg',
+      ingredients: ['Whey Protein', 'Almond Milk', 'Banana', 'Peanut Butter'],
+    },
+    {
+      id: '3-alt-2',
+      name: 'Energy Bites',
+      time: '4:00 PM',
+      calories: 220,
+      protein: 12,
+      carbs: 28,
+      fat: 10,
+      image: '/meals/snack-alt2.jpg',
+      ingredients: ['Oats', 'Dark Chocolate', 'Almond Butter', 'Honey', 'Flax Seeds'],
+    },
+    {
+      id: '3-alt-3',
+      name: 'Cottage Cheese Bowl',
+      time: '4:00 PM',
+      calories: 240,
+      protein: 24,
+      carbs: 18,
+      fat: 8,
+      image: '/meals/snack-alt3.jpg',
+      ingredients: ['Cottage Cheese', 'Pineapple', 'Walnuts', 'Cinnamon'],
+    },
+  ],
+  '4': [ // Dinner alternatives
+    {
+      id: '4-alt-1',
+      name: 'Grilled Steak & Veggies',
+      time: '7:30 PM',
+      calories: 580,
+      protein: 48,
+      carbs: 28,
+      fat: 32,
+      image: '/meals/dinner-alt1.jpg',
+      ingredients: ['Sirloin Steak', 'Asparagus', 'Bell Peppers', 'Garlic Butter', 'Herbs'],
+    },
+    {
+      id: '4-alt-2',
+      name: 'Shrimp Stir Fry',
+      time: '7:30 PM',
+      calories: 490,
+      protein: 42,
+      carbs: 45,
+      fat: 16,
+      image: '/meals/dinner-alt2.jpg',
+      ingredients: ['Shrimp', 'Brown Rice', 'Snap Peas', 'Carrots', 'Ginger Sauce'],
+    },
+    {
+      id: '4-alt-3',
+      name: 'Chicken Tikka Masala',
+      time: '7:30 PM',
+      calories: 560,
+      protein: 45,
+      carbs: 42,
+      fat: 24,
+      image: '/meals/dinner-alt3.jpg',
+      ingredients: ['Chicken Breast', 'Basmati Rice', 'Tomato Sauce', 'Yogurt', 'Spices'],
+    },
+  ],
+}
+
+// Function to get a random alternative meal
+export function getAlternativeMeal(mealId: string): Meal | null {
+  const baseMealId = mealId.split('-')[0] // Get base ID (e.g., '1' from '1-alt-1')
+  const alternatives = alternativeMeals[baseMealId]
+  if (!alternatives || alternatives.length === 0) return null
+  
+  // Get a random alternative
+  const randomIndex = Math.floor(Math.random() * alternatives.length)
+  return alternatives[randomIndex]
+}
+
+// Function to regenerate all meals
+export function regenerateAllMeals(): Meal[] {
+  return mockPlan.meals.map(meal => {
+    const alternative = getAlternativeMeal(meal.id)
+    // 50% chance to swap each meal
+    if (alternative && Math.random() > 0.5) {
+      return { ...alternative, id: meal.id } // Keep original ID for state tracking
+    }
+    return meal
+  })
+}
