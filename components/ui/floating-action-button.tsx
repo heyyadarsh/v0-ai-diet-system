@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Plus, RefreshCw, Camera, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +12,7 @@ interface FloatingActionButtonProps {
 }
 
 export function FloatingActionButton({ onQuickSwap, onScanMeal, onAiSuggest }: FloatingActionButtonProps) {
+  const prefersReducedMotion = useReducedMotion()
   const [isOpen, setIsOpen] = useState(false)
 
   const actions = [
@@ -67,9 +68,9 @@ export function FloatingActionButton({ onQuickSwap, onScanMeal, onAiSuggest }: F
       {/* Main FAB */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        animate={{ rotate: isOpen ? 45 : 0 }}
+        whileHover={prefersReducedMotion ? {} : { scale: 1.1 }}
+        whileTap={prefersReducedMotion ? {} : { scale: 0.9 }}
+        animate={prefersReducedMotion ? {} : { rotate: isOpen ? 45 : 0 }}
         className={cn(
           'w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.3)]',
           'bg-primary text-primary-foreground',

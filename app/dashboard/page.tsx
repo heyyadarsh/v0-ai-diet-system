@@ -1,29 +1,53 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder, useReducedMotion } from 'framer-motion'
 import { FloatingDock } from '@/components/antigravity/floating-dock'
 import { MacroStats } from '@/components/sections/macro-stats'
 import { WaterTracker } from '@/components/sections/water-tracker'
 import { SwipeableMealCard } from '@/components/ui/swipeable-meal-card'
+import { MealDetailModal } from '@/components/ui/meal-detail-modal'
 import { FloatingActionButton } from '@/components/ui/floating-action-button'
 import { VibeSwitcher } from '@/components/ui/vibe-switcher'
 import { StreakDisplay } from '@/components/ui/streak-display'
 import { DashboardSkeleton } from '@/components/ui/skeleton-loaders'
 import { SmartEmptyState } from '@/components/ui/smart-empty-state'
 import { PageTransition } from '@/components/ui/page-transition'
+import { Confetti } from '@/components/ui/confetti'
 import { useAppState, vibeConfigs } from '@/lib/store'
-import { mockPlan } from '@/data/mock-plan'
-import { Calendar, ChevronLeft, ChevronRight, Sparkles, RefreshCw } from 'lucide-react'
+import { mockPlan, type Meal } from '@/data/mock-plan'
+import { Calendar, ChevronLeft, ChevronRight, Sparkles, RefreshCw, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { state, isLoaded, toggleMeal, addWater, removeWater, updateProfile } = useAppState()
+  const prefersReducedMotion = useReducedMotion()
+  const { 
+    state, isLoaded, toggleMeal, addWater, removeWater, updateProfile, 
+    setMealOrder, markDayComplete, addAchievement 
+  } = useAppState()
+  
   const [isLoading, setIsLoading] = useState(true)
   const [swappingMeal, setSwappingMeal] = useState<string | null>(null)
   const [showAiThinking, setShowAiThinking] = useState(false)
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [mealOrder, setLocalMealOrder] = useState<Meal[]>(mockPlan.meals)
+
+  // Initialize meal order from state or defaults
+  useEffect(() => {
+    if (isLoaded) {
+      if (state.mealOrder.length > 0) {
+        const orderedMeals = state.mealOrder
+          .map(id => mockPlan.meals.find(m => m.id === id))
+          .filter((m): m is Meal => m !== undefined)
+        setLocalMealOrder(orderedMeals)
+      } else {
+        setLocalMealOrder(mockPlan.meals)
+      }
+    }
+  }, [isLoaded, state.mealOrder])
 
   // Simulate initial load
   useEffect(() => {
@@ -32,6 +56,46 @@ export default function DashboardPage() {
       return () => clearTimeout(timer)
     }
   }, [isLoaded])
+
+  // Check for achievements
+  useEffect(() => {
+    if (!isLoaded) return
+    
+    // First meal achievement
+    if (state.completedMeals.length === 1 && !state.achievements.includes('firstMeal')) {
+      addAchievement('firstMeal')
+    }
+    
+    // All meals achievement
+    if (state.completedMeals.length === mockPlan.meals.length) {
+      if (!state.achievements.includes('allMeals')) {
+        addAchievement('allMeals')
+        setShowConfetti(true)
+        setTimeout(() => setShowConfetti(false), 100)
+        markDayComplete()
+      }
+    }
+    
+    // Streak achievements
+    if (state.profile.streak >= 3 && !state.achievements.includes('streak3')) {
+      addAchievement('streak3')
+    }
+    if (state.profile.streak >= 7 && !state.achievements.includes('streak7')) {
+      addAchievement('streak7')
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 100)
+    }
+    
+    // Meal count achievements
+    if (state.profile.totalMealsCompleted >= 50 && !state.achievements.includes('meals50')) {
+      addAchievement('meals50')
+    }
+    if (state.profile.totalMealsCompleted >= 100 && !state.achievements.includes('meals100')) {
+      addAchievement('meals100')
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 100)
+    }
+  }, [isLoaded, state.completedMeals.length, state.profile.streak, state.profile.totalMealsCompleted, state.achievements, addAchievement, markDayComplete])
 
   // Calculate consumed macros based on completed meals
   const consumed = useMemo(() => {
@@ -48,7 +112,7 @@ export default function DashboardPage() {
     router.push(href)
   }
 
-  const handleSwapMeal = (mealId: string) => {
+  const handleSwapMeal = useCallback((mealId: string) => {
     setSwappingMeal(mealId)
     setShowAiThinking(true)
     
@@ -58,12 +122,21 @@ export default function DashboardPage() {
       setSwappingMeal(null)
       // In a real app, this would fetch a new meal suggestion
     }, 2000)
-  }
+  }, [])
 
-  const handleAiSuggest = () => {
+  const handleAiSuggest = useCallback(() => {
     setShowAiThinking(true)
     setTimeout(() => setShowAiThinking(false), 2000)
-  }
+  }, [])
+
+  const handleMealReorder = useCallback((newOrder: Meal[]) => {
+    setLocalMealOrder(newOrder)
+    setMealOrder(newOrder.map(m => m.id))
+  }, [setMealOrder])
+
+  const handleMealToggle = useCallback((mealId: string) => {
+    toggleMeal(mealId)
+  }, [toggleMeal])
 
   const today = new Date()
   const formattedDate = today.toLocaleDateString('en-US', {
@@ -98,6 +171,9 @@ export default function DashboardPage() {
   return (
     <PageTransition>
       <main className="relative min-h-screen bg-background pb-24">
+        {/* Confetti celebration */}
+        <Confetti isActive={showConfetti} />
+
         {/* AI Thinking Overlay */}
         <AnimatePresence>
           {showAiThinking && (
@@ -122,7 +198,11 @@ export default function DashboardPage() {
                   AI is thinking...
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Finding the perfect alternative for you
+                  {state.profile.goal === 'weight-loss' 
+                    ? 'Finding low-calorie alternatives for you'
+                    : state.profile.goal === 'muscle-gain'
+                    ? 'Finding high-protein options for you'
+                    : 'Finding the perfect alternative for you'}
                 </p>
               </motion.div>
             </motion.div>
@@ -133,7 +213,7 @@ export default function DashboardPage() {
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
           className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-glass-border"
         >
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
@@ -160,23 +240,27 @@ export default function DashboardPage() {
 
             {/* Date navigation */}
             <div className="flex items-center justify-center gap-2 mt-4">
-              <button
+              <motion.button
+                whileHover={prefersReducedMotion ? {} : { scale: 1.1 }}
+                whileTap={prefersReducedMotion ? {} : { scale: 0.9 }}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 aria-label="Previous day"
               >
                 <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </motion.button>
               <button
                 className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium"
               >
                 Today
               </button>
-              <button
+              <motion.button
+                whileHover={prefersReducedMotion ? {} : { scale: 1.1 }}
+                whileTap={prefersReducedMotion ? {} : { scale: 0.9 }}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 aria-label="Next day"
               >
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.header>
@@ -190,13 +274,19 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
+            transition={{ delay: 0.2, duration: prefersReducedMotion ? 0 : 0.6 }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">{"Today's Meals"}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-foreground">{"Today's Meals"}</h2>
+                <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full flex items-center gap-1">
+                  <GripVertical className="w-3 h-3" />
+                  Drag to reorder
+                </span>
+              </div>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+                whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
                 onClick={handleAiSuggest}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
               >
@@ -205,38 +295,50 @@ export default function DashboardPage() {
               </motion.button>
             </div>
             
-            {mockPlan.meals.length === 0 ? (
+            {mealOrder.length === 0 ? (
               <SmartEmptyState type="meals" onAction={() => router.push('/onboarding')} />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockPlan.meals.map((meal, index) => (
-                  <motion.div
+              <Reorder.Group 
+                axis="y" 
+                values={mealOrder} 
+                onReorder={handleMealReorder}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                {mealOrder.map((meal, index) => (
+                  <Reorder.Item
                     key={meal.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 * index, duration: 0.5 }}
+                    value={meal}
+                    className="cursor-grab active:cursor-grabbing"
+                    whileDrag={{ scale: 1.02, zIndex: 50 }}
                   >
-                    <SwipeableMealCard
-                      meal={meal}
-                      isCompleted={state.completedMeals.includes(meal.id)}
-                      onToggle={() => toggleMeal(meal.id)}
-                      onSwap={() => handleSwapMeal(meal.id)}
-                    />
-                    
-                    {/* Swapping indicator */}
-                    {swappingMeal === meal.id && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="mt-2 flex items-center justify-center gap-2 text-sm text-primary"
-                      >
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Finding alternative...</span>
-                      </motion.div>
-                    )}
-                  </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : 0.1 * index, duration: prefersReducedMotion ? 0 : 0.5 }}
+                    >
+                      <SwipeableMealCard
+                        meal={meal}
+                        isCompleted={state.completedMeals.includes(meal.id)}
+                        onToggle={() => handleMealToggle(meal.id)}
+                        onSwap={() => handleSwapMeal(meal.id)}
+                        onViewDetails={() => setSelectedMeal(meal)}
+                      />
+                      
+                      {/* Swapping indicator */}
+                      {swappingMeal === meal.id && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mt-2 flex items-center justify-center gap-2 text-sm text-primary"
+                        >
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Finding alternative...</span>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  </Reorder.Item>
                 ))}
-              </div>
+              </Reorder.Group>
             )}
           </motion.div>
 
@@ -252,14 +354,14 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
+            transition={{ delay: 0.6, duration: prefersReducedMotion ? 0 : 0.6 }}
             className="bg-glass backdrop-blur-xl rounded-2xl border border-glass-border p-6 text-center"
           >
             <p className="text-muted-foreground mb-2">
               {"You've completed"}{' '}
               <motion.span
                 key={state.completedMeals.length}
-                initial={{ scale: 1.5, color: 'oklch(0.696 0.17 145)' }}
+                initial={prefersReducedMotion ? {} : { scale: 1.5, color: 'oklch(0.696 0.17 145)' }}
                 animate={{ scale: 1, color: 'oklch(0.696 0.17 145)' }}
                 className="font-semibold"
               >
@@ -274,7 +376,7 @@ export default function DashboardPage() {
                 animate={{
                   width: `${(state.completedMeals.length / mockPlan.meals.length) * 100}%`,
                 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: 'easeOut' }}
               />
             </div>
             
@@ -296,8 +398,21 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
+        {/* Meal Detail Modal */}
+        <MealDetailModal
+          meal={selectedMeal}
+          isOpen={!!selectedMeal}
+          onClose={() => setSelectedMeal(null)}
+          onComplete={() => {
+            if (selectedMeal) {
+              handleMealToggle(selectedMeal.id)
+            }
+          }}
+          isCompleted={selectedMeal ? state.completedMeals.includes(selectedMeal.id) : false}
+        />
+
         <FloatingActionButton
-          onQuickSwap={() => handleSwapMeal(mockPlan.meals[0]?.id)}
+          onQuickSwap={() => handleSwapMeal(mealOrder[0]?.id)}
           onAiSuggest={handleAiSuggest}
         />
         

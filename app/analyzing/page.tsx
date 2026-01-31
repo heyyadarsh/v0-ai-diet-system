@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAppState } from '@/lib/store'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { useAppState, vibeConfigs } from '@/lib/store'
 import { Check, Sparkles } from 'lucide-react'
 
 const analysisSteps = [
@@ -40,6 +40,7 @@ const goalTips: Record<string, string[]> = {
 
 export default function AnalyzingPage() {
   const router = useRouter()
+  const prefersReducedMotion = useReducedMotion()
   const { state, isLoaded } = useAppState()
   const [currentStep, setCurrentStep] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -47,6 +48,7 @@ export default function AnalyzingPage() {
   const [isComplete, setIsComplete] = useState(false)
 
   const tips = state.profile.goal ? goalTips[state.profile.goal] || goalTips.maintain : goalTips.maintain
+  const currentVibe = vibeConfigs[state.profile.vibe]
 
   const advanceStep = useCallback(() => {
     setCurrentStep((prev) => {

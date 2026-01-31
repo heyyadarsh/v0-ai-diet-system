@@ -11,6 +11,7 @@ interface SwipeableMealCardProps {
   isCompleted: boolean
   onToggle: () => void
   onSwap?: () => void
+  onViewDetails?: () => void
 }
 
 const mealTips: Record<string, { tip: string; icon: 'timer' | 'sparkles' | 'utensils' }> = {
@@ -26,7 +27,7 @@ const tipIcons = {
   utensils: Utensils,
 }
 
-export function SwipeableMealCard({ meal, isCompleted, onToggle, onSwap }: SwipeableMealCardProps) {
+export function SwipeableMealCard({ meal, isCompleted, onToggle, onSwap, onViewDetails }: SwipeableMealCardProps) {
   const prefersReducedMotion = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showTip, setShowTip] = useState(false)
@@ -235,19 +236,35 @@ export function SwipeableMealCard({ meal, isCompleted, onToggle, onSwap }: Swipe
           </div>
 
           {/* Expand button */}
-          <motion.button
-            onClick={() => setIsExpanded(!isExpanded)}
-            whileHover={prefersReducedMotion ? {} : { y: isExpanded ? 2 : -2 }}
-            className="w-full mt-4 pt-3 border-t border-glass-border flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>{isExpanded ? 'Hide' : 'Show'} ingredients</span>
-            <motion.div
-              animate={{ rotate: isExpanded ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-glass-border">
+            <motion.button
+              onClick={() => setIsExpanded(!isExpanded)}
+              whileHover={prefersReducedMotion ? {} : { y: isExpanded ? 2 : -2 }}
+              className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ChevronDown className="w-4 h-4" />
-            </motion.div>
-          </motion.button>
+              <span>{isExpanded ? 'Hide' : 'Show'} ingredients</span>
+              <motion.div
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-4 h-4" />
+              </motion.div>
+            </motion.button>
+            
+            {onViewDetails && (
+              <motion.button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onViewDetails()
+                }}
+                whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+                whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
+                className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+              >
+                View Recipe
+              </motion.button>
+            )}
+          </div>
 
           {/* Expanded content */}
           <AnimatePresence>

@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { GlassCard } from '@/components/ui/glass-card'
 import { MagneticButton } from '@/components/antigravity/magnetic-button'
 import { PageTransition } from '@/components/ui/page-transition'
-import { useAppState } from '@/lib/store'
+import { useAppState, vibeConfigs, commonAllergies, commonCravings, type VibeType } from '@/lib/store'
 import { goals, dietaryPreferences } from '@/data/mock-plan'
-import { ArrowLeft, ArrowRight, Flame, Dumbbell, Scale, Zap, Check, User, Activity, AlertCircle } from 'lucide-react'
+import { 
+  ArrowLeft, ArrowRight, Flame, Dumbbell, Scale, Zap, Check, User, 
+  Activity, AlertCircle, Sparkles, Heart 
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const goalIcons: Record<string, typeof Flame> = {
@@ -28,6 +31,7 @@ const activityLevels = [
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const prefersReducedMotion = useReducedMotion()
   const { state, isLoaded, updateProfile } = useAppState()
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(1)
@@ -43,6 +47,8 @@ export default function OnboardingPage() {
     dietaryPreferences: [] as string[],
     activityLevel: 'moderate',
     allergies: [] as string[],
+    cravings: [] as string[],
+    vibe: 'balanced' as VibeType,
   })
 
   // Load existing profile data
@@ -58,11 +64,13 @@ export default function OnboardingPage() {
         dietaryPreferences: state.profile.dietaryPreferences || [],
         activityLevel: state.profile.activityLevel || 'moderate',
         allergies: state.profile.allergies || [],
+        cravings: state.profile.cravings || [],
+        vibe: state.profile.vibe || 'balanced',
       })
     }
   }, [isLoaded, state.profile])
 
-  const totalSteps = 5
+  const totalSteps = 8
 
   const handleNext = () => {
     if (step < totalSteps - 1) {
@@ -74,7 +82,8 @@ export default function OnboardingPage() {
         ...formData,
         completedOnboarding: true,
         joinedDate: state.profile.joinedDate || new Date().toISOString(),
-        streak: state.profile.streak || 0,
+        streak: state.profile.streak || 1,
+        lastActiveDate: new Date().toISOString().split('T')[0],
       })
       router.push('/analyzing')
     }
@@ -96,16 +105,19 @@ export default function OnboardingPage() {
       case 2: return formData.dietaryPreferences.length > 0
       case 3: return formData.activityLevel !== ''
       case 4: return formData.weight && formData.height && formData.age
+      case 5: return true // Allergies optional
+      case 6: return true // Cravings optional  
+      case 7: return formData.vibe !== null
       default: return true
     }
   }
 
-  const togglePreference = (id: string) => {
+  const toggleItem = (field: 'dietaryPreferences' | 'allergies' | 'cravings', id: string) => {
     setFormData((prev) => ({
       ...prev,
-      dietaryPreferences: prev.dietaryPreferences.includes(id)
-        ? prev.dietaryPreferences.filter((p) => p !== id)
-        : [...prev.dietaryPreferences, id],
+      [field]: prev[field].includes(id)
+        ? prev[field].filter((p) => p !== id)
+        : [...prev[field], id],
     }))
   }
 
@@ -130,6 +142,9 @@ export default function OnboardingPage() {
     { title: 'Any dietary preferences?', subtitle: 'Select all that apply' },
     { title: 'How active are you?', subtitle: 'This helps calculate your needs' },
     { title: 'Tell us about yourself', subtitle: 'We need a few numbers to get started' },
+    { title: 'Any food allergies?', subtitle: 'We\'ll make sure to avoid these' },
+    { title: 'What are you craving?', subtitle: 'Help us match your taste preferences' },
+    { title: 'Choose your vibe', subtitle: 'This sets the tone for your experience' },
   ]
 
   if (!isLoaded) {
@@ -149,14 +164,14 @@ export default function OnboardingPage() {
             className="h-full bg-primary"
             initial={{ width: 0 }}
             animate={{ width: `${((step + 1) / totalSteps) * 100}%` }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
           />
         </div>
 
         {/* Back button */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={prefersReducedMotion ? {} : { scale: 1.1 }}
+          whileTap={prefersReducedMotion ? {} : { scale: 0.9 }}
           onClick={handleBack}
           className="fixed top-8 left-4 sm:left-8 p-3 rounded-full bg-glass border border-glass-border hover:bg-secondary transition-colors z-50"
           aria-label="Go back"
@@ -191,11 +206,11 @@ export default function OnboardingPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <div className="text-center mb-10">
                   <motion.div
-                    initial={{ scale: 0 }}
+                    initial={prefersReducedMotion ? {} : { scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', delay: 0.2 }}
                     className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center"
@@ -230,7 +245,7 @@ export default function OnboardingPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <div className="text-center mb-10">
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
@@ -245,9 +260,9 @@ export default function OnboardingPage() {
                     return (
                       <motion.div
                         key={goal.id}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
+                        transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
                       >
                         <GlassCard
                           selected={formData.goal === goal.id}
@@ -287,7 +302,7 @@ export default function OnboardingPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <div className="text-center mb-10">
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
@@ -300,13 +315,13 @@ export default function OnboardingPage() {
                   {dietaryPreferences.map((pref, index) => (
                     <motion.div
                       key={pref.id}
-                      initial={{ opacity: 0, scale: 0.9 }}
+                      initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : index * 0.05 }}
                     >
                       <GlassCard
                         selected={formData.dietaryPreferences.includes(pref.id)}
-                        onClick={() => togglePreference(pref.id)}
+                        onClick={() => toggleItem('dietaryPreferences', pref.id)}
                         className="p-4"
                       >
                         <div className="flex items-center justify-between">
@@ -337,11 +352,11 @@ export default function OnboardingPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <div className="text-center mb-10">
                   <motion.div
-                    initial={{ scale: 0 }}
+                    initial={prefersReducedMotion ? {} : { scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', delay: 0.2 }}
                     className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center"
@@ -358,9 +373,9 @@ export default function OnboardingPage() {
                   {activityLevels.map((level, index) => (
                     <motion.div
                       key={level.id}
-                      initial={{ opacity: 0, x: -20 }}
+                      initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
                     >
                       <GlassCard
                         selected={formData.activityLevel === level.id}
@@ -398,7 +413,7 @@ export default function OnboardingPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <div className="text-center mb-10">
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
@@ -409,7 +424,7 @@ export default function OnboardingPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                     className="space-y-2"
@@ -425,7 +440,7 @@ export default function OnboardingPage() {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
                     className="space-y-2"
@@ -441,7 +456,7 @@ export default function OnboardingPage() {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                     className="space-y-2"
@@ -457,7 +472,7 @@ export default function OnboardingPage() {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25 }}
                     className="space-y-2"
@@ -485,25 +500,189 @@ export default function OnboardingPage() {
                 </motion.div>
               </motion.div>
             )}
+
+            {/* Step 5: Allergies */}
+            {step === 5 && (
+              <motion.div
+                key="allergies"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
+              >
+                <div className="text-center mb-10">
+                  <motion.div
+                    initial={prefersReducedMotion ? {} : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', delay: 0.2 }}
+                    className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center"
+                  >
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </motion.div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
+                    {stepTitles[5].title}
+                  </h1>
+                  <p className="text-muted-foreground">{stepTitles[5].subtitle}</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
+                  {commonAllergies.map((allergy, index) => (
+                    <motion.div
+                      key={allergy.id}
+                      initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : index * 0.05 }}
+                    >
+                      <GlassCard
+                        selected={formData.allergies.includes(allergy.id)}
+                        onClick={() => toggleItem('allergies', allergy.id)}
+                        className="p-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-foreground">{allergy.label}</span>
+                          {formData.allergies.includes(allergy.id) && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      </GlassCard>
+                    </motion.div>
+                  ))}
+                </div>
+                
+                <p className="text-center text-sm text-muted-foreground mt-6">
+                  Skip if you don't have any allergies
+                </p>
+              </motion.div>
+            )}
+
+            {/* Step 6: Cravings */}
+            {step === 6 && (
+              <motion.div
+                key="cravings"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
+              >
+                <div className="text-center mb-10">
+                  <motion.div
+                    initial={prefersReducedMotion ? {} : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', delay: 0.2 }}
+                    className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center"
+                  >
+                    <Heart className="w-8 h-8 text-pink-400" />
+                  </motion.div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
+                    {stepTitles[6].title}
+                  </h1>
+                  <p className="text-muted-foreground">{stepTitles[6].subtitle}</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
+                  {commonCravings.map((craving, index) => (
+                    <motion.div
+                      key={craving.id}
+                      initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : index * 0.05 }}
+                    >
+                      <GlassCard
+                        selected={formData.cravings.includes(craving.id)}
+                        onClick={() => toggleItem('cravings', craving.id)}
+                        className="p-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-foreground">{craving.label}</span>
+                          {formData.cravings.includes(craving.id) && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      </GlassCard>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 7: Vibe */}
+            {step === 7 && (
+              <motion.div
+                key="vibe"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
+              >
+                <div className="text-center mb-10">
+                  <motion.div
+                    initial={prefersReducedMotion ? {} : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', delay: 0.2 }}
+                    className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center"
+                  >
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </motion.div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 text-balance">
+                    {stepTitles[7].title}
+                  </h1>
+                  <p className="text-muted-foreground">{stepTitles[7].subtitle}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                  {(Object.entries(vibeConfigs) as [VibeType, typeof vibeConfigs.balanced][]).map(([key, vibe], index) => (
+                    <motion.div
+                      key={key}
+                      initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
+                    >
+                      <GlassCard
+                        selected={formData.vibe === key}
+                        onClick={() => setFormData({ ...formData, vibe: key })}
+                        className="p-5 text-center"
+                      >
+                        <motion.div
+                          animate={formData.vibe === key && !prefersReducedMotion ? { scale: [1, 1.2, 1] } : {}}
+                          transition={{ duration: 0.5 }}
+                          className="text-3xl mb-2"
+                        >
+                          {vibe.emoji}
+                        </motion.div>
+                        <h3 className="font-semibold text-foreground">{vibe.label}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">{vibe.description}</p>
+                      </GlassCard>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 
-        {/* Next button */}
+        {/* Continue button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="fixed bottom-8 sm:bottom-12 left-1/2 -translate-x-1/2"
+          className="mt-12"
         >
           <MagneticButton
             onClick={handleNext}
+            disabled={!canProceed()}
             className={cn(
-              'transition-opacity duration-300',
-              !canProceed() && 'opacity-50 pointer-events-none'
+              'min-w-[200px]',
+              !canProceed() && 'opacity-50 cursor-not-allowed'
             )}
           >
             <span className="flex items-center gap-2">
-              {step === totalSteps - 1 ? 'Generate My Plan' : 'Continue'}
+              {step === totalSteps - 1 ? 'Create My Plan' : 'Continue'}
               <ArrowRight className="w-4 h-4" />
             </span>
           </MagneticButton>

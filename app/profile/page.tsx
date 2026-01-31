@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { FloatingDock } from '@/components/antigravity/floating-dock'
 import { GlassCard } from '@/components/ui/glass-card'
 import { VibeSwitcher } from '@/components/ui/vibe-switcher'
@@ -10,11 +10,13 @@ import { StreakCard } from '@/components/ui/streak-display'
 import { ProfileCardSkeleton } from '@/components/ui/skeleton-loaders'
 import { PageTransition } from '@/components/ui/page-transition'
 import { MagneticButton } from '@/components/antigravity/magnetic-button'
-import { useAppState, vibeConfigs } from '@/lib/store'
+import { Confetti } from '@/components/ui/confetti'
+import { useAppState, vibeConfigs, achievements as achievementDefs } from '@/lib/store'
 import { goals, dietaryPreferences } from '@/data/mock-plan'
 import { 
   User, Settings, Edit2, Save, X, ChevronRight, 
-  Flame, Dumbbell, Scale, Zap, LogOut, Check 
+  Flame, Dumbbell, Scale, Zap, LogOut, Check, Trophy,
+  Eye, EyeOff, Award
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -35,11 +37,13 @@ const activityLevels = [
 
 export default function ProfilePage() {
   const router = useRouter()
+  const prefersReducedMotion = useReducedMotion()
   const { state, isLoaded, updateProfile, resetState } = useAppState()
   const [isEditing, setIsEditing] = useState(false)
   const [editedProfile, setEditedProfile] = useState(state.profile)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [activeSection, setActiveSection] = useState<string | null>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
 
   useEffect(() => {
     if (isLoaded) {
@@ -51,7 +55,11 @@ export default function ProfilePage() {
     updateProfile(editedProfile)
     setIsEditing(false)
     setSaveSuccess(true)
-    setTimeout(() => setSaveSuccess(false), 2000)
+    setShowConfetti(true)
+    setTimeout(() => {
+      setSaveSuccess(false)
+      setShowConfetti(false)
+    }, 2000)
   }
 
   const handleCancel = () => {
@@ -72,6 +80,11 @@ export default function ProfilePage() {
     ? state.profile.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'BA'
 
+  // Get earned achievements
+  const earnedAchievements = Object.values(achievementDefs).filter(
+    (a) => state.achievements.includes(a.id)
+  )
+
   if (!isLoaded) {
     return (
       <main className="relative min-h-screen bg-background pb-24">
@@ -89,6 +102,9 @@ export default function ProfilePage() {
   return (
     <main className="relative min-h-screen bg-background pb-24">
       <PageTransition>
+        {/* Confetti */}
+        <Confetti isActive={showConfetti} />
+
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
@@ -106,28 +122,31 @@ export default function ProfilePage() {
                 />
                 {!isEditing ? (
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+                    whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
                     onClick={() => setIsEditing(true)}
                     className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                    aria-label="Edit profile"
                   >
                     <Edit2 className="w-5 h-5 text-muted-foreground" />
                   </motion.button>
                 ) : (
                   <div className="flex items-center gap-1">
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+                      whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
                       onClick={handleCancel}
                       className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                      aria-label="Cancel editing"
                     >
                       <X className="w-5 h-5 text-muted-foreground" />
                     </motion.button>
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+                      whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
                       onClick={handleSave}
                       className="p-2 rounded-lg bg-primary text-primary-foreground"
+                      aria-label="Save changes"
                     >
                       <Save className="w-5 h-5" />
                     </motion.button>
@@ -177,12 +196,20 @@ export default function ProfilePage() {
             className="bg-glass backdrop-blur-xl rounded-2xl border border-glass-border p-6"
           >
             <div className="flex items-center gap-4 mb-6">
-              {/* Avatar */}
+              {/* Avatar with glow */}
               <motion.div
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center"
+                whileHover={prefersReducedMotion ? {} : { scale: 1.05, rotate: 5 }}
+                className="relative w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center overflow-hidden"
+                style={{ boxShadow: `0 0 30px ${currentVibe.colors.glow}` }}
               >
                 <span className="text-2xl font-bold text-primary">{initials}</span>
+                {/* Ripple effect on hover */}
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-primary/10"
+                  initial={{ scale: 0, opacity: 0 }}
+                  whileHover={{ scale: 2, opacity: 0.5 }}
+                  transition={{ duration: 0.5 }}
+                />
               </motion.div>
               
               <div className="flex-1">
@@ -202,26 +229,76 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {currentVibe.greeting}
                 </p>
+                {state.profile.joinedDate && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Member since {new Date(state.profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Weight', value: state.profile.weight ? `${state.profile.weight} lbs` : '--' },
-                { label: 'Height', value: state.profile.height ? `${state.profile.height}"` : '--' },
-                { label: 'Age', value: state.profile.age || '--' },
+                { label: 'Weight', value: state.profile.weight ? `${state.profile.weight} lbs` : '--', editable: true, field: 'weight' },
+                { label: 'Height', value: state.profile.height ? `${state.profile.height}"` : '--', editable: true, field: 'height' },
+                { label: 'Age', value: state.profile.age || '--', editable: true, field: 'age' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center p-3 rounded-xl bg-secondary/50">
                   <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
-                  <p className="text-lg font-semibold text-foreground">{stat.value}</p>
+                  {isEditing && stat.editable ? (
+                    <input
+                      type="number"
+                      value={editedProfile[stat.field as keyof typeof editedProfile] as string || ''}
+                      onChange={(e) => setEditedProfile({ ...editedProfile, [stat.field]: e.target.value })}
+                      className="w-full text-center text-lg font-semibold text-foreground bg-transparent border-b border-glass-border focus:border-primary outline-none"
+                    />
+                  ) : (
+                    <p className="text-lg font-semibold text-foreground">{stat.value}</p>
+                  )}
                 </div>
               ))}
             </div>
           </motion.div>
 
           {/* Streak Card */}
-          <StreakCard streak={state.profile.streak} />
+          <StreakCard streak={state.profile.streak} longestStreak={state.profile.longestStreak} />
+
+          {/* Achievements */}
+          {earnedAchievements.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="bg-glass backdrop-blur-xl rounded-2xl border border-glass-border p-5"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <h3 className="font-semibold text-foreground">Achievements</h3>
+                <span className="text-xs text-muted-foreground">
+                  {earnedAchievements.length}/{Object.keys(achievementDefs).length}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {earnedAchievements.map((achievement, index) => (
+                  <motion.div
+                    key={achievement.id}
+                    initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
+                    whileHover={prefersReducedMotion ? {} : { scale: 1.1, y: -2 }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-glass-border"
+                    title={achievement.description}
+                  >
+                    <span className="text-lg">{achievement.icon}</span>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">{achievement.title}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Goal Section */}
           <motion.div
@@ -408,6 +485,37 @@ export default function ProfilePage() {
             transition={{ delay: 0.25 }}
             className="bg-glass backdrop-blur-xl rounded-2xl border border-glass-border overflow-hidden"
           >
+            {/* Reduced Motion Toggle */}
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {state.profile.reducedMotion ? (
+                  <EyeOff className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <Eye className="w-5 h-5 text-muted-foreground" />
+                )}
+                <div>
+                  <span className="font-medium text-foreground">Reduced Motion</span>
+                  <p className="text-xs text-muted-foreground">Minimize animations</p>
+                </div>
+              </div>
+              <button
+                onClick={() => updateProfile({ reducedMotion: !state.profile.reducedMotion })}
+                className={cn(
+                  'w-12 h-6 rounded-full transition-colors relative',
+                  state.profile.reducedMotion ? 'bg-primary' : 'bg-secondary'
+                )}
+                aria-label="Toggle reduced motion"
+              >
+                <motion.div
+                  animate={{ x: state.profile.reducedMotion ? 24 : 2 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className="w-5 h-5 rounded-full bg-foreground absolute top-0.5"
+                />
+              </button>
+            </div>
+            
+            <div className="border-t border-glass-border" />
+
             <button
               onClick={() => router.push('/onboarding')}
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
@@ -433,6 +541,29 @@ export default function ProfilePage() {
                 <span className="font-medium">Reset All Data</span>
               </div>
             </button>
+          </motion.div>
+
+          {/* Stats Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-glass backdrop-blur-xl rounded-2xl border border-glass-border p-5"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Award className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Your Stats</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 rounded-xl bg-secondary/50 text-center">
+                <p className="text-2xl font-bold text-foreground">{state.profile.totalMealsCompleted}</p>
+                <p className="text-xs text-muted-foreground">Meals Completed</p>
+              </div>
+              <div className="p-3 rounded-xl bg-secondary/50 text-center">
+                <p className="text-2xl font-bold text-foreground">{state.profile.longestStreak}</p>
+                <p className="text-xs text-muted-foreground">Longest Streak</p>
+              </div>
+            </div>
           </motion.div>
         </div>
       </PageTransition>
